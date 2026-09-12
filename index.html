@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drummer Chart AI — Charts that count themselves in</title>
+<meta name="description" content="Drop in a track. Get back a click with every section called out — verse, chorus, the breakdown you always miss. Built by a drummer, for drummers.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2315120F'/%3E%3Crect x='4' y='14' width='3' height='8' fill='%23C6A15B'/%3E%3Crect x='9' y='9' width='3' height='18' fill='%23C6A15B'/%3E%3Crect x='14' y='4' width='3' height='24' fill='%23C6A15B'/%3E%3Crect x='19' y='11' width='3' height='14' fill='%23C6A15B'/%3E%3Crect x='24' y='16' width='3' height='6' fill='%23C6A15B'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #15120F;
+    --bg-alt: #1D1912;
+    --bg-panel: #211C15;
+    --brass: #C6A15B;
+    --brass-bright: #DDBE7D;
+    --oxblood: #5C2626;
+    --cream: #EDE3D0;
+    --muted: #9C9184;
+    --hairline: #33291C;
+    --max-w: 1120px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse 900px 500px at 85% -10%, rgba(198,161,91,0.10), transparent 60%),
+      radial-gradient(ellipse 700px 400px at 10% 100%, rgba(92,38,38,0.12), transparent 60%);
+    color: var(--cream);
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, .display {
+    font-family: 'Big Shoulders Display', sans-serif;
+    letter-spacing: 0.01em;
+    line-height: 0.95;
+    margin: 0;
+  }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ---------- Nav ---------- */
+  header {
+    padding: 28px 0 0;
+  }
+  .nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wordmark {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+  .wordmark .dot { color: var(--brass); }
+  .nav-tag {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    padding: 76px 0 60px;
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 56px;
+    align-items: center;
+  }
+  .hero h1 {
+    font-weight: 900;
+    font-size: clamp(40px, 6vw, 68px);
+    color: var(--cream);
+  }
+  .hero h1 .accent { color: var(--brass-bright); }
+  .hero-sub {
+    margin-top: 22px;
+    max-width: 46ch;
+    font-size: 18px;
+    color: #CFC3AE;
+  }
+
+  .signup {
+    margin-top: 34px;
+    max-width: 440px;
+  }
+  .signup-row {
+    display: flex;
+    gap: 10px;
+  }
+  .signup input[type="email"] {
+    flex: 1;
+    min-width: 0;
+    padding: 14px 16px;
+    border-radius: 3px;
+    border: 1px solid var(--hairline);
+    background: var(--bg-panel);
+    color: var(--cream);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px;
+  }
+  .signup input[type="email"]:focus {
+    outline: 2px solid var(--brass);
+    outline-offset: 1px;
+  }
+  .signup input[type="email"]::placeholder { color: var(--muted); }
+  .signup button {
+    padding: 14px 22px;
+    border-radius: 3px;
+    border: none;
+    background: var(--brass);
+    color: #1A1509;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+  }
+  .signup button:hover { background: var(--brass-bright); }
+  .signup button:focus-visible { outline: 2px solid var(--cream); outline-offset: 2px; }
+  .signup-note {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .signup-confirm {
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--brass-bright);
+    display: none;
+  }
+  .signup-confirm.show { display: block; }
+
+  /* ---------- Waveform hero graphic ---------- */
+  .chart-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    padding: 26px 22px 20px;
+  }
+  .chart-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+  .chart-label-row span:first-child { color: var(--brass-bright); }
+  svg.waveform { display: block; width: 100%; height: auto; }
+  .bar {
+    fill: #4A4030;
+    transform-origin: bottom;
+    animation: grow 0.6s ease-out both;
+  }
+  .bar.hit { fill: var(--brass); }
+  @keyframes grow {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+  .marker-line { stroke: var(--hairline); stroke-width: 1; stroke-dasharray: 3 3; }
+  .marker-label {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 10.5px;
+    fill: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .playhead {
+    fill: var(--brass-bright);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bar, .playhead { animation: none !important; }
+  }
+
+  /* ---------- Sections ---------- */
+  section { padding: 54px 0; border-top: 1px solid var(--hairline); }
+
+  .problem {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 40px;
+  }
+  .problem h2 {
+    font-weight: 800;
+    font-size: 30px;
+    color: var(--brass-bright);
+  }
+  .problem p {
+    max-width: 62ch;
+    font-size: 17px;
+    color: #D8CDB8;
+  }
+  .problem p + p { margin-top: 16px; }
+
+  .how {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 40px;
+  }
+  .how h2 {
+    font-weight: 800;
+    font-size: 30px;
+    color: var(--brass-bright);
+  }
+  .step-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: 60ch;
+  }
+  .step-list li {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 16.5px;
+  }
+  .step-list li:last-child { border-bottom: none; }
+  .step-num {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 800;
+    font-size: 24px;
+    color: var(--brass);
+  }
+  .step-title { color: var(--cream); font-weight: 500; }
+  .step-desc { color: var(--muted); font-size: 15px; margin-top: 2px; }
+
+  footer {
+    border-top: 1px solid var(--hairline);
+    padding: 34px 0 46px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  footer .byline {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 50ch;
+  }
+  footer .byline strong { color: var(--cream); font-weight: 500; }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding-top: 48px; }
+    .problem, .how { grid-template-columns: 1fr; gap: 18px; }
+    .signup-row { flex-direction: column; }
+    .signup button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="nav-row">
+    <div class="wordmark">drummerchart<span class="dot">.ai</span></div>
+    <div class="nav-tag">a Cicero Web Studio project</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero" style="border-top:none;">
+    <div>
+      <h1>Learn the song.<br>Skip the <span class="accent">legal pad.</span></h1>
+      <p class="hero-sub">Drop in a track. Get back a click with every section called out — verse, chorus, the breakdown you always miss on the first pass. Practice against it like you've already played the gig.</p>
+
+      <form class="signup" id="signup-form">
+        <div class="signup-row">
+          <input type="email" id="signup-email" placeholder="you@yourband.com" required aria-label="Email address">
+          <button type="submit">Count me in</button>
+        </div>
+        <p class="signup-note">Early access, no spam. First charts go out to the list before anyone else.</p>
+        <p class="signup-confirm" id="signup-confirm">You're on the list. First charts come your way soon.</p>
+      </form>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-label-row">
+        <span>◆ live preview</span>
+        <span>0:42 / 3:15</span>
+      </div>
+      <svg class="waveform" viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- section marker lines -->
+        <line x1="72" y1="10" x2="72" y2="140" class="marker-line"/>
+        <line x1="190" y1="10" x2="190" y2="140" class="marker-line"/>
+        <line x1="300" y1="10" x2="300" y2="140" class="marker-line"/>
+        <text x="4" y="20" class="marker-label">INTRO</text>
+        <text x="78" y="20" class="marker-label">VERSE</text>
+        <text x="196" y="20" class="marker-label">CHORUS</text>
+        <text x="306" y="20" class="marker-label">BREAKDOWN</text>
+
+        <!-- bars -->
+        <g id="bars"></g>
+
+        <!-- playhead -->
+        <rect x="188" y="10" width="2.5" height="130" class="playhead"/>
+      </svg>
+    </div>
+  </section>
+
+  <section class="problem">
+    <h2>The&nbsp;pitch</h2>
+    <div>
+      <p>I've spent more Saturday nights charting a setlist than actually playing one — highlighting a lyric sheet, scrubbing back ten seconds at a time, guessing whether that's a pre-chorus or just a long verse.</p>
+      <p>This is the tool I wanted before every fill-in gig I ever took. Upload the track, get the map, show up ready.</p>
+    </div>
+  </section>
+
+  <section class="how">
+    <h2>How it<br>works</h2>
+    <ol class="step-list">
+      <li>
+        <span class="step-num">1</span>
+        <div>
+          <div class="step-title">Upload the track</div>
+          <div class="step-desc">An MP3 is all it takes to start.</div>
+        </div>
+      </li>
+      <li>
+        <span class="step-num">2</span>
+        <div>
+          <div class="step-title">We map every section</div>
+          <div class="step-desc">Tempo, beats, and every structural change — verse, chorus, bridge, breakdown.</div>
+        </div>
+      </li>
+      <li>
+        <span class="step-num">3</span>
+        <div>
+          <div class="step-title">Get your click</div>
+          <div class="step-desc">A follow-along track with a cue at every transition. Practice against it like it's soundcheck.</div>
+        </div>
+      </li>
+    </ol>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div class="byline"><strong>Built by a drummer, for drummers.</strong> Because someone still has to chart the set before Thursday's rehearsal.</div>
+  <div class="nav-tag">© 2026 Drummer Chart AI</div>
+</footer>
+
+<script>
+  // Generate a natural-looking waveform with one highlighted "hit" bar
+  (function () {
+    const barsGroup = document.getElementById('bars');
+    const heights = [22,34,28,46,38,52,44,60,50,68,58,72,20,30,46,38,58,50,66,56,74,62,80,68,88,72,30,42,54,46,64,56,76,64,84,72,90,78,58,44];
+    const n = heights.length;
+    const chartW = 400;
+    const chartH = 140;
+    const baseY = 140;
+    const gap = 2;
+    const barW = (chartW - gap * (n - 1)) / n;
+    let x = 0;
+    heights.forEach((h, i) => {
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const height = h;
+      rect.setAttribute('x', x.toFixed(2));
+      rect.setAttribute('y', (baseY - height).toFixed(2));
+      rect.setAttribute('width', barW.toFixed(2));
+      rect.setAttribute('height', height.toFixed(2));
+      rect.setAttribute('class', i === 19 || i === 20 ? 'bar hit' : 'bar');
+      rect.style.animationDelay = (i * 0.02) + 's';
+      barsGroup.appendChild(rect);
+      x += barW + gap;
+    });
+  })();
+
+  // Client-side only confirmation — not wired to a real mailing list yet
+  document.getElementById('signup-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    document.getElementById('signup-confirm').classList.add('show');
+    this.querySelector('.signup-row').style.opacity = '0.5';
+    this.querySelector('input').disabled = true;
+    this.querySelector('button').disabled = true;
+  });
+</script>
+
+</body>
+</html>
