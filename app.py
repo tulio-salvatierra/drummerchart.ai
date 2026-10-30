@@ -2,13 +2,16 @@ from pathlib import Path
 import shutil
 import tempfile
 import base64
+import json
+import hashlib
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from analyzer import analyze_song
+from tempo import reviewed_grid
 from clicktrack import render_click_track
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -79,3 +82,52 @@ def analyze_result(file: UploadFile = File(...)):
             }
         except Exception as exc:
             raise HTTPException(422, f"Could not analyze this audio: {exc}") from exc
+
+
+@app.post("/tempo")
+def tempo_result(file: UploadFile = File(...)):
+    if Path(file.filename or "").suffix.lower() != ".mp3":
+        raise HTTPException(400, "Upload an MP3.")
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "input.mp3"
+        audio = file.file.read()
+        source.write_bytes(audio)
+        try:
+            data = analyze_song(source, tempo_only=True)
+            return {**data, "source_name": Path(file.filename).name,
+                    "source_sha256": hashlib.sha256(audio).hexdigest()}
+        except Exception as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/tempo/approve")
+def approve_tempo(file: UploadFile = File(...), review: str = Form(...)):
+    if Path(file.filename or "").suffix.lower() != ".mp3":
+        raise HTTPException(400, "Upload an MP3.")
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "input.mp3"
+        audio = file.file.read()
+        source.write_bytes(audio)
+        try:
+            payload = json.loads(review)
+            if payload.get("confirmed") is not True:
+                raise ValueError("Confirm the tempo map before continuing.")
+            if payload.get("source_sha256") != hashlib.sha256(audio).hexdigest():
+                raise ValueError("Audio changed; analyze its tempo again.")
+            prediction = analyze_song(source, tempo_only=True)
+            segments = payload.get("segments")
+            beats = reviewed_grid(segments, prediction["duration"]) if segments is not None else prediction["beat_times"]
+            analysis = analyze_song(source, reviewed_beats=beats)
+            wav = render_click_track(analysis["beat_times"], analysis["boundary_times"],
+                                     analysis["duration"], Path(directory) / "click.wav")
+            return {"schema_version": 2, "analysis_version": "tempo-review-v1",
+                    "source_name": Path(file.filename).name,
+                    "source_sha256": payload["source_sha256"],
+                    "duration": analysis["duration"], "beat_times": beats,
+                    "boundary_times": analysis["boundary_times"].tolist(),
+                    "tempo_review": {"confirmed": True, "predicted": prediction,
+                                     "corrected_segments": segments,
+                                     "mode": "piecewise-grid" if segments is not None else "detected-beats"},
+                    "click_wav_base64": base64.b64encode(wav.read_bytes()).decode("ascii")}
+        except Exception as exc:
+            raise HTTPException(422, str(exc)) from exc

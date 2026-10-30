@@ -63,7 +63,7 @@ def _detect_section_boundaries(y: np.ndarray, sr: int, beat_frames: np.ndarray) 
     return librosa.frames_to_time(frames, sr=sr, hop_length=hop_length)
 
 
-def analyze_song(path: str | Path) -> dict:
+def analyze_song(path: str | Path, *, tempo_only=False, reviewed_beats=None) -> dict:
     y, sr = librosa.load(path, sr=22050, mono=True)
     if y.size == 0:
         raise ValueError("The uploaded MP3 contains no decodable audio.")
@@ -87,6 +87,17 @@ def analyze_song(path: str | Path) -> dict:
     if len(beat_times) < 4:
         raise ValueError("Not enough beats were detected to build a click track.")
 
+    if reviewed_beats is not None:
+        beat_times = np.asarray(reviewed_beats, dtype=float)
+        beat_frames = librosa.time_to_frames(beat_times, sr=sr, hop_length=hop_length)
+    if tempo_only:
+        intervals = np.diff(beat_times)
+        median = float(60 / np.median(intervals))
+        variation = float(np.percentile(60 / intervals, 90) - np.percentile(60 / intervals, 10))
+        return {"duration": duration, "beat_times": beat_times.tolist(),
+                "estimated_bpm": median, "tempo_spread_bpm": variation,
+                "assessment": "approximately steady" if variation < median * .06 else "variable or uncertain",
+                "analysis_version": "tempo-review-v1"}
     boundaries = _detect_section_boundaries(y, sr, beat_frames)
 
     # Snap each candidate to the nearest actual beat and de-duplicate nearby results.

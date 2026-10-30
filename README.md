@@ -70,3 +70,25 @@ The integration fixture is synthetic WAV content with an MP3 upload filename;
 it verifies decoding, actual analysis and WAV rendering, but not MP3 codec
 compatibility or musical recognition accuracy. Browser playback/listening
 requires manual verification.
+
+## Tempo-first review
+
+The browser now calls `POST /tempo` first: beat timing, median BPM, an
+interval-tempo plot and a central 10th–90th percentile spread, without section
+detection or WAV generation. Listen to the original and explicitly approve
+before continuing. Keep detected beat timing (default), or enable a corrected
+map with rows of beat-anchor seconds and BPM. Add/remove rows for tempo changes;
+anchors must increase and BPM must be 20–400. Each anchor resets beat phase.
+This is a piecewise constant tempo map; gradual ramps need multiple rows or
+the original detected beats. The graph shows the prediction, not the edited grid.
+
+`POST /tempo/approve` validates confirmation and the audio SHA-256, creates the
+reviewed beat grid, then detects sections using that grid and renders the WAV.
+Editing the map hides the old result and clears approval. Export includes
+predicted tempo data, corrected segments, approved beats and source hash.
+Legacy `/analyze` and `/analyze/result` retain their original direct-generation
+contracts; the new approval gate applies to the browser workflow and new routes.
+
+The steady/variable indication is a heuristic, not confidence or proof of
+constant tempo. The existing tracker can miss tempo changes or choose half/double
+time. Tempo changes are not automatically labeled as song sections.
