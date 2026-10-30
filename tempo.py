@@ -23,3 +23,22 @@ def reviewed_grid(segments, duration):
     if len(beats) < 4:
         raise ValueError("The map must contain at least four beats.")
     return beats
+
+
+def meter_review(meter, beats, duration):
+    """Quarter-note meters only; downbeat selection snaps to the reviewed grid."""
+    if not isinstance(meter, dict):
+        raise ValueError("Choose a meter and first ONE.")
+    numerator = meter.get("numerator")
+    if type(numerator) is not int or numerator not in (2, 3, 4):
+        raise ValueError("This draft supports 2/4, 3/4 and 4/4.")
+    if meter.get("denominator") != 4:
+        raise ValueError("BPM is quarter notes per minute in this draft.")
+    first = float(meter["first_one"])
+    if not math.isfinite(first) or not 0 <= first < duration:
+        raise ValueError("First ONE must be inside the song.")
+    index = int(np.argmin(np.abs(np.asarray(beats) - first)))
+    return {"numerator": numerator, "denominator": 4, "bpm_unit": "quarter",
+            "requested_first_one": first, "first_one": float(beats[index]),
+            "first_one_beat_index": index,
+            "downbeat_times": list(beats[index::numerator])}

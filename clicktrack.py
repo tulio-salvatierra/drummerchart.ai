@@ -24,6 +24,7 @@ def render_click_track(
     duration: float,
     output_path: str | Path,
     sr: int = 44100,
+    downbeat_times=None,
 ) -> Path:
     """Render a standalone click WAV following detected beat timestamps exactly."""
     output_path = Path(output_path)
@@ -33,8 +34,11 @@ def render_click_track(
     click = _tone(1200.0, 0.045, sr, 0.62)
     section = _tone(520.0, 0.18, sr, 0.92)
 
+    downbeat = _tone(1800.0, 0.065, sr, 0.9)
+    accents = {round(float(t), 7) for t in (downbeat_times if downbeat_times is not None else [])}
     for beat in beat_times:
-        _mix_at(audio, click, float(beat), sr)
+        sound = downbeat if round(float(beat), 7) in accents else click
+        _mix_at(audio, sound, float(beat), sr)
 
     # A lower, longer cue is intentionally unmistakable against the normal click.
     for boundary in boundary_times:

@@ -17,7 +17,17 @@ body{font:16px system-ui;background:#101923;color:#e9f0f4;max-width:1100px;margi
 <label><input id="overrideTempo" type="checkbox"> Use a corrected tempo map</label>
 <p>Each row starts a new tempo at an exact beat anchor in seconds. The first anchor sets the first click; later anchors reset beat alignment. Leave unchecked to preserve every detected beat.</p>
 <div id="tempoRows"></div><button id="addTempo">Add tempo change</button>
-<label><input id="approveCheck" type="checkbox"> I reviewed and approve this tempo map</label>
+<h3>Meter and first ONE</h3>
+<p>Manual setting, not automatic meter detection. Saraiman starts with your 3/4 count. BPM means quarter notes per minute.</p>
+<label>Time signature <select id="meter"><option value="3">3/4 — ONE two three</option><option value="4">4/4 — ONE two three four</option><option value="2">2/4 — ONE two</option></select></label>
+<label>First ONE (seconds) <input id="firstOne" type="number" min="0" step="0.001"></label>
+<button id="markOne">Mark original playhead as ONE</button>
+<p>The first ONE snaps to the nearest reviewed beat; it changes bar accents, not beat timing. Use tempo beat anchors to correct timing. Earlier beats are unaccented pickups.</p>
+<button id="audition">Build count audition</button>
+<p id="meterStatus">Unconfirmed 3/4 starting point. Mark ONE and audition before approval.</p>
+<audio id="countAudio" controls aria-label="Song and meter audition" hidden></audio>
+<p>Audition: song left, click right. Higher click = ONE. No sections are detected during audition. This draft supports one quarter-note meter for the whole song.</p>
+<label><input id="approveCheck" type="checkbox"> I reviewed and approve tempo, meter and first ONE</label>
 <button id="approveTempo">Identify sections and generate click</button>
 <p>Re-analyzing or changing the map invalidates the previous section chart and click.</p>
 </section>

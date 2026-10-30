@@ -92,3 +92,23 @@ contracts; the new approval gate applies to the browser workflow and new routes.
 The steady/variable indication is a heuristic, not confidence or proof of
 constant tempo. The existing tracker can miss tempo changes or choose half/double
 time. Tempo changes are not automatically labeled as song sections.
+
+## Meter and first ONE
+
+Tempo review now includes a manual 3/4 starting point for the Saraiman review,
+with 2/4 and 4/4 alternatives. BPM always denotes quarter notes. Mark the original
+audio playhead as ONE or type seconds; the requested position snaps to the nearest
+reviewed beat. The audition reports the actual snapped position. It does not
+shift beat timing. Beats before ONE are unaccented pickups.
+
+Build count audition calls /tempo/audition and produces a stereo WAV (song left,
+click right), with a higher 1800 Hz accent every N beats versus 1200 Hz regular
+clicks. It does not detect sections or approve the map. Changing tempo, meter,
+or ONE stops/hides the stale audition and invalidates approval. Explicit approval
+uses the same accents for the resulting click and includes meter, requested and
+snapped ONE, beat index, downbeat times and confirmation in the JSON export.
+Legacy calls without meter retain their unaccented behavior.
+
+One constant quarter-note meter per song is supported. Automatic meter detection,
+odd/compound grouping, meter changes and spoken counting are not implemented.
+The default first beat is only a provisional ONE, not a verified downbeat.
