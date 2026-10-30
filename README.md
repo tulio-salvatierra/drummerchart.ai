@@ -112,3 +112,13 @@ Legacy calls without meter retain their unaccented behavior.
 One constant quarter-note meter per song is supported. Automatic meter detection,
 odd/compound grouping, meter changes and spoken counting are not implemented.
 The default first beat is only a provisional ONE, not a verified downbeat.
+
+### Stacked review layout
+Both review and result views stack original waveform, click waveform, section
+timeline, then shared transport. Before approval, the section lane is a placeholder.
+The review transport plays either the original or the synchronized audition mix.
+White cursors share a time scale; gold ONE markers show the requested position
+before audition and the snapped position afterward. Drag the shared timer and
+choose Place ONE at playhead, or use the separate ONE slider. Numeric input remains
+available for fine adjustment. Changing ONE invalidates audition and approval;
+it is a manual correction for export, not automatic model training.

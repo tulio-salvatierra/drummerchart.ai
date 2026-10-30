@@ -2,7 +2,16 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Drummer Chart — Review</title>
 <style>
-body{font:16px system-ui;background:#101923;color:#e9f0f4;max-width:1100px;margin:40px auto;padding:20px}button,input,select{font:inherit;padding:9px;margin:5px}button{cursor:pointer}canvas{width:100%;height:130px;background:#182936}.tracks{display:grid;grid-template-columns:1fr 1fr;gap:20px}#timeline{display:flex;margin:25px 0}#timeline button{min-width:0;overflow:hidden;margin:0;border:1px solid #101923;background:#70d9c5;padding:18px 2px}#timeline button[aria-pressed=true]{outline:3px solid white;z-index:1}#seek{width:95%}small{color:#b3c6d3}label{display:inline-block}#status{min-height:24px}@media(max-width:600px){.tracks{grid-template-columns:1fr}}
+body{font:16px system-ui;background:#101923;color:#e9f0f4;max-width:1100px;margin:40px auto;padding:20px}button,input,select{font:inherit;padding:9px;margin:5px}button{cursor:pointer}canvas{width:100%;height:130px;background:#182936}.tracks{display:grid;grid-template-columns:1fr;gap:12px}#timeline{display:flex;margin:25px 0}#timeline button{min-width:0;overflow:hidden;margin:0;border:1px solid #101923;background:#70d9c5;padding:18px 2px}#timeline button[aria-pressed=true]{outline:3px solid white;z-index:1}#seek{width:95%}small{color:#b3c6d3}label{display:inline-block}#status{min-height:24px}@media(max-width:600px){.tracks{grid-template-columns:1fr}}
+
+.track-stack{--playhead:0%;--one:0%;border:1px solid #385060;border-radius:12px;padding:16px;margin:18px 0}
+.lane{position:relative;overflow:hidden}.lane canvas{display:block;height:100px}
+.cursor{position:absolute;left:var(--playhead);top:0;bottom:0;width:2px;background:#fff;pointer-events:none}
+.one-marker{position:absolute;left:clamp(0px,var(--one),calc(100% - 34px));top:0;color:#101923;background:#ffd37a;padding:3px;font-size:12px;font-weight:700;pointer-events:none}
+.track-stack h3{margin:12px 0 6px}.transport{margin-top:16px;border-top:1px solid #385060;padding-top:12px}
+.transport input[type=range],#oneDrag{width:100%;box-sizing:border-box;margin:8px 0;padding:0}
+audio{width:100%}.empty-lane{padding:18px;background:#182936;color:#b3c6d3}
+details{margin:18px 0}summary{cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #ffd37a}
 </style></head><body>
 <h1>Listen. Review. Refine.</h1><p>Pass 2B draft · song chart review</p>
 <form id="upload"><input id="file" aria-label="Original MP3" type="file" accept=".mp3,audio/mpeg" required><button id="analyze">Review tempo</button></form>
@@ -10,33 +19,47 @@ body{font:16px system-ui;background:#101923;color:#e9f0f4;max-width:1100px;margi
 <section id="tempoReview" hidden>
 <h2>1. Review tempo before continuing</h2>
 <p id="tempoSummary"></p>
-<audio id="tempoAudio" controls aria-label="Listen to original while reviewing tempo"></audio>
+<div id="reviewStack" class="track-stack">
+<h3>Original song</h3>
+<div class="lane"><canvas id="reviewOriginal" aria-label="Original song waveform"></canvas><span class="cursor"></span><span class="one-marker">ONE</span></div>
+<audio id="tempoAudio" aria-label="Listen to original while reviewing tempo"></audio>
+<h3>Click audition</h3>
+<div class="lane"><canvas id="reviewClick" aria-label="Click audition waveform"></canvas><span class="cursor"></span><span class="one-marker">ONE</span></div>
+<p id="clickHint">Build a count audition after placing ONE.</p>
+<h3>Section timeline</h3><div class="empty-lane">Sections appear after you approve tempo and meter.</div>
+<div class="transport"><button id="reviewPlay">Play original</button> <output id="reviewTime">0.0 s</output>
+<input id="reviewSeek" type="range" min="0" value="0" step="0.01" aria-label="Review shared playback position">
+<button id="markOne">Place ONE at playhead</button>
+<label for="oneDrag">Drag ONE marker · snaps to a reviewed beat when auditioned</label>
+<input id="oneDrag" type="range" min="0" value="0" step="0.01" aria-label="First ONE marker">
+</div></div>
+<details><summary>Tempo estimate and corrections</summary>
 <canvas id="tempoGraph" aria-label="Estimated tempo over time"></canvas>
 <p id="tempoRange"></p>
 <p>Estimates are unconfirmed. Variation can mean drift, a tempo change, or detection error. Check half/double tempo by listening. Tempo changes alone do not establish sections.</p>
 <label><input id="overrideTempo" type="checkbox"> Use a corrected tempo map</label>
 <p>Each row starts a new tempo at an exact beat anchor in seconds. The first anchor sets the first click; later anchors reset beat alignment. Leave unchecked to preserve every detected beat.</p>
 <div id="tempoRows"></div><button id="addTempo">Add tempo change</button>
-<h3>Meter and first ONE</h3>
+</details><h3>Meter and first ONE</h3>
 <p>Manual setting, not automatic meter detection. Saraiman starts with your 3/4 count. BPM means quarter notes per minute.</p>
 <label>Time signature <select id="meter"><option value="3">3/4 — ONE two three</option><option value="4">4/4 — ONE two three four</option><option value="2">2/4 — ONE two</option></select></label>
 <label>First ONE (seconds) <input id="firstOne" type="number" min="0" step="0.001"></label>
-<button id="markOne">Mark original playhead as ONE</button>
+
 <p>The first ONE snaps to the nearest reviewed beat; it changes bar accents, not beat timing. Use tempo beat anchors to correct timing. Earlier beats are unaccented pickups.</p>
 <button id="audition">Build count audition</button>
 <p id="meterStatus">Unconfirmed 3/4 starting point. Mark ONE and audition before approval.</p>
-<audio id="countAudio" controls aria-label="Song and meter audition" hidden></audio>
+<audio id="countAudio" aria-label="Song and meter audition" hidden></audio>
 <p>Audition: song left, click right. Higher click = ONE. No sections are detected during audition. This draft supports one quarter-note meter for the whole song.</p>
 <label><input id="approveCheck" type="checkbox"> I reviewed and approve tempo, meter and first ONE</label>
 <button id="approveTempo">Identify sections and generate click</button>
 <p>Re-analyzing or changing the map invalidates the previous section chart and click.</p>
 </section>
-<main id="result" hidden>
-<div class="tracks"><section><h2>Original song</h2><canvas id="original" aria-label="Original waveform"></canvas><label>Volume <input id="originalVolume" type="range" min="0" max="1" step=".01" value=".8"></label></section>
-<section><h2>Generated click</h2><canvas id="click" aria-label="Click waveform"></canvas><label>Volume <input id="clickVolume" type="range" min="0" max="1" step=".01" value=".6"></label></section></div>
-<button id="play">Play</button><output id="time"></output><input id="seek" aria-label="Shared playback position" type="range" min="0" step=".01" value="0">
+<main id="result" class="track-stack" hidden>
+<div class="tracks"><section><h2>Original song</h2><div class="lane"><canvas id="original" aria-label="Original waveform"></canvas><span class="cursor"></span><span class="one-marker">ONE</span></div><label>Volume <input id="originalVolume" type="range" min="0" max="1" step=".01" value=".8"></label></section>
+<section><h2>Generated click</h2><div class="lane"><canvas id="click" aria-label="Click waveform"></canvas><span class="cursor"></span><span class="one-marker">ONE</span></div><label>Volume <input id="clickVolume" type="range" min="0" max="1" step=".01" value=".6"></label></section></div>
+
 <h2>Section timeline</h2><small>Boundary predictions only: this analyzer does not infer musical roles. Click a section to edit.</small>
-<div id="timeline"></div>
+<div id="timeline"></div><div class="transport"><button id="play">Play</button><output id="time"></output><input id="seek" aria-label="Shared playback position" type="range" min="0" step=".01" value="0"></div>
 <label><input id="snap" type="checkbox" checked> Snap edits to approved beats</label>
 <p><label>Label <input id="label" maxlength="80"></label>
 <label>Start (seconds) <input id="start" type="number" step=".01"></label>
