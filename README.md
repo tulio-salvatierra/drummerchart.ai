@@ -42,3 +42,114 @@ Use a song whose arrangement you know well. Play the returned WAV alongside the 
 2. Do the lower/longer cues land on useful section changes?
 
 The second question is the main experiment. Boundary detection is intentionally simple and tunable rather than presented as a finished verse/chorus classifier.
+
+## Pass 2B draft review UI
+
+Run the existing FastAPI app and open `/`. Upload an MP3 to see original
+and generated-click waveforms side by side. Both buffers use one Web Audio
+clock and shared play/pause/seek; volume is independent. Select a timeline
+section, rename it or change its start time, split at the playhead, or merge
+with the next section. Beat snapping is enabled by default. First/last
+endpoints remain fixed and invalid/zero-length sections are rejected.
+
+The existing analyzer predicts change boundaries only. Labels begin as Unknown,
+unconfirmed; confirmation is explicit and edits invalidate affected confirmation.
+Export JSON retains original predictions, corrected sections, confirmation
+states, beats, source filename, analysis version and export time. No database
+or training runs. Corrections are lost on reload unless exported. Editing
+boundaries does not regenerate click cues.
+
+Legacy `POST /analyze` still returns WAV. New `POST /analyze/result` returns
+metadata and inline base64 WAV, keeping temporary files isolated per request.
+This draft buffers complete audio in memory and is intended for individual
+songs, not large uploads. No upload-size guard or persistent audio identity
+hash is added. Boundary moves use numeric controls rather than dragging.
+
+Checks: `node --test tests/chart.test.mjs`; `python -m pytest tests/test_api.py`.
+The integration fixture is synthetic WAV content with an MP3 upload filename;
+it verifies decoding, actual analysis and WAV rendering, but not MP3 codec
+compatibility or musical recognition accuracy. Browser playback/listening
+requires manual verification.
+
+## Tempo-first review
+
+The browser now calls `POST /tempo` first: beat timing, median BPM, an
+interval-tempo plot and a central 10th–90th percentile spread, without section
+detection or WAV generation. Listen to the original and explicitly approve
+before continuing. Keep detected beat timing (default), or enable a corrected
+map with rows of beat-anchor seconds and BPM. Add/remove rows for tempo changes;
+anchors must increase and BPM must be 20–400. Each anchor resets beat phase.
+This is a piecewise constant tempo map; gradual ramps need multiple rows or
+the original detected beats. The graph shows the prediction, not the edited grid.
+
+`POST /tempo/approve` validates confirmation and the audio SHA-256, creates the
+reviewed beat grid, then detects sections using that grid and renders the WAV.
+Editing the map hides the old result and clears approval. Export includes
+predicted tempo data, corrected segments, approved beats and source hash.
+Legacy `/analyze` and `/analyze/result` retain their original direct-generation
+contracts; the new approval gate applies to the browser workflow and new routes.
+
+The steady/variable indication is a heuristic, not confidence or proof of
+constant tempo. The existing tracker can miss tempo changes or choose half/double
+time. Tempo changes are not automatically labeled as song sections.
+
+## Meter and first ONE
+
+Tempo review now includes a manual 3/4 starting point for the Saraiman review,
+with 2/4 and 4/4 alternatives. BPM always denotes quarter notes. Mark the original
+audio playhead as ONE or type seconds; the requested position snaps to the nearest
+reviewed beat. The audition reports the actual snapped position. It does not
+shift beat timing. Beats before ONE are unaccented pickups.
+
+Build count audition calls /tempo/audition and produces a stereo WAV (song left,
+click right), with a higher 1800 Hz accent every N beats versus 1200 Hz regular
+clicks. It does not detect sections or approve the map. Changing tempo, meter,
+or ONE stops/hides the stale audition and invalidates approval. Explicit approval
+uses the same accents for the resulting click and includes meter, requested and
+snapped ONE, beat index, downbeat times and confirmation in the JSON export.
+Legacy calls without meter retain their unaccented behavior.
+
+One constant quarter-note meter per song is supported. Automatic meter detection,
+odd/compound grouping, meter changes and spoken counting are not implemented.
+The default first beat is only a provisional ONE, not a verified downbeat.
+
+### Stacked review layout
+Both review and result views stack original waveform, click waveform, section
+timeline, then shared transport. Before approval, the section lane is a placeholder.
+The review transport plays either the original or the synchronized audition mix.
+White cursors share a time scale; gold ONE markers show the requested position
+before audition and the snapped position afterward. Drag the shared timer and
+choose Place ONE at playhead, or use the separate ONE slider. Numeric input remains
+available for fine adjustment. Changing ONE invalidates audition and approval;
+it is a manual correction for export, not automatic model training.
+
+### Zoom and bar loops
+The pre-approval review timeline supports whole-song, 4×, 16× and 64× waveform
+views, earlier/later navigation, and centering on the playhead. The timer and
+ONE slider share the visible time range and support 0.001-second steps; actual
+downbeat placement still snaps to the reviewed beat grid.
+
+After building an audition, select 1, 2, 4 or 8 bars and Set loop at playhead.
+The start snaps backward to a bar boundary anchored to ONE; the end uses actual
+reviewed beat timestamps, not average BPM. Missing complete bars at the tail
+are rejected. Play loop uses a single stereo Web Audio buffer with loopStart/
+loopEnd, keeping song and click together without timer-driven audio restarts.
+Stop loop retains the playback position. Meter/tempo/ONE changes invalidate loops.
+Zoom and looping currently apply to pre-approval review, not the final chart editor.
+
+### Eighth-note subdivisions and 3+3+2
+Click pattern offers quarter notes, straight eighth notes, and eighth-note 3+3+2.
+Selecting 3+3+2 sets 4/4; changing to another meter resets that incompatible pattern.
+BPM remains quarter notes per minute. Eighth pulses are midpoints of successive
+reviewed beats, preserving local tempo drift; no pulses are extrapolated past the
+last detected beat. ONE snaps to the selected pulse grid, including eighth-note
+positions. Pre-ONE pulses remain unaccented pickups.
+
+3+3+2 accents pulse 1 at 1800 Hz, pulses 4 and 7 at 1500 Hz, and other pulses at
+1200 Hz. A full pattern is eight eighth notes (four quarter beats). Loop lengths
+use complete pulse cycles anchored to ONE, including when ONE is on an offbeat.
+Audition and approved WAV use the same pulse/accent map; section analysis still
+uses quarter-note beats. Export includes pattern, subdivision, grouping, pulse
+times, cycle length, pulse anchor, downbeats and secondary accent times.
+This is a manual pattern choice, not automatic meter/pattern recognition; no swing,
+triplets or within-song pattern changes are added.
