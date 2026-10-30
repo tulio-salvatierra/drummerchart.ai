@@ -20,7 +20,9 @@ details{margin:18px 0}summary{cursor:pointer}button:focus-visible,input:focus-vi
 <h2>1. Review tempo before continuing</h2>
 <p id="tempoSummary"></p>
 <div id="reviewStack" class="track-stack">
-<h3>Original song</h3>
+<label>Zoom <select id="zoom"><option value="1">Whole song</option><option value="4">4×</option><option value="16">16×</option><option value="64">64×</option></select></label>
+<button id="zoomBack">Earlier</button><button id="zoomCenter">Center on playhead</button><button id="zoomNext">Later</button>
+<p id="viewRange"></p><h3>Original song</h3>
 <div class="lane"><canvas id="reviewOriginal" aria-label="Original song waveform"></canvas><span class="cursor"></span><span class="one-marker">ONE</span></div>
 <audio id="tempoAudio" aria-label="Listen to original while reviewing tempo"></audio>
 <h3>Click audition</h3>
@@ -32,7 +34,11 @@ details{margin:18px 0}summary{cursor:pointer}button:focus-visible,input:focus-vi
 <button id="markOne">Place ONE at playhead</button>
 <label for="oneDrag">Drag ONE marker · snaps to a reviewed beat when auditioned</label>
 <input id="oneDrag" type="range" min="0" value="0" step="0.01" aria-label="First ONE marker">
-</div></div>
+<div>
+<label>Loop length <select id="loopBars"><option value="1">1 bar</option><option value="2" selected>2 bars</option><option value="4">4 bars</option><option value="8">8 bars</option></select></label>
+<button id="setLoop">Set loop at playhead</button><button id="playLoop">Play loop</button><button id="stopLoop">Stop loop</button>
+<p id="loopStatus">Build an audition, then select complete bars to loop. Loop uses the reviewed beat timings.</p>
+</div></div></div>
 <details><summary>Tempo estimate and corrections</summary>
 <canvas id="tempoGraph" aria-label="Estimated tempo over time"></canvas>
 <p id="tempoRange"></p>

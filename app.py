@@ -132,7 +132,7 @@ def approve_tempo(file: UploadFile = File(...), review: str = Form(...), auditio
                 mix[:len(original), 0] = original * .7
                 mix[:, 1] = click * .6
                 sf.write(Path(directory) / "audition.wav", mix, sr, subtype="PCM_16")
-                return {"meter_review": meter, "approved": False,
+                return {"meter_review": meter, "beat_times": beats, "approved": False,
                         "audition_wav_base64": base64.b64encode((Path(directory) / "audition.wav").read_bytes()).decode("ascii")}
             analysis = analyze_song(source, reviewed_beats=beats)
             wav = render_click_track(analysis["beat_times"], analysis["boundary_times"],

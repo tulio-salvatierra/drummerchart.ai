@@ -122,3 +122,17 @@ before audition and the snapped position afterward. Drag the shared timer and
 choose Place ONE at playhead, or use the separate ONE slider. Numeric input remains
 available for fine adjustment. Changing ONE invalidates audition and approval;
 it is a manual correction for export, not automatic model training.
+
+### Zoom and bar loops
+The pre-approval review timeline supports whole-song, 4×, 16× and 64× waveform
+views, earlier/later navigation, and centering on the playhead. The timer and
+ONE slider share the visible time range and support 0.001-second steps; actual
+downbeat placement still snaps to the reviewed beat grid.
+
+After building an audition, select 1, 2, 4 or 8 bars and Set loop at playhead.
+The start snaps backward to a bar boundary anchored to ONE; the end uses actual
+reviewed beat timestamps, not average BPM. Missing complete bars at the tail
+are rejected. Play loop uses a single stereo Web Audio buffer with loopStart/
+loopEnd, keeping song and click together without timer-driven audio restarts.
+Stop loop retains the playback position. Meter/tempo/ONE changes invalidate loops.
+Zoom and looping currently apply to pre-approval review, not the final chart editor.
