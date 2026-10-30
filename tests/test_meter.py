@@ -27,7 +27,8 @@ def test_wav_has_three_beat_accent_cycle(tmp_path):
     assert peaks[3]>peaks[2]*1.2
     assert peaks[6]>peaks[5]*1.2
 
-def test_audition_does_not_detect_sections_and_approval_exports_meter():
+@pytest.mark.parametrize("numerator,pattern", [(3,"quarter"),(4,"332")])
+def test_audition_does_not_detect_sections_and_approval_exports_meter(numerator,pattern):
     import base64, hashlib, io, json
     from unittest.mock import patch
     from fastapi.testclient import TestClient
@@ -38,7 +39,7 @@ def test_audition_does_not_detect_sections_and_approval_exports_meter():
     beats=np.arange(.25,6,.5).tolist()
     prediction={"duration":6,"beat_times":beats}
     payload={"confirmed":True,"source_sha256":hashlib.sha256(audio).hexdigest(),
-             "meter":{"numerator":3,"denominator":4,"first_one":.25}}
+             "meter":{"numerator":numerator,"denominator":4,"first_one":.25,"pattern":pattern}}
     with patch.object(app,"analyze_song",return_value=prediction) as analyze:
         response=TestClient(app.app).post("/tempo/audition",files={"file":("test.mp3",audio)},data={"review":json.dumps(payload)})
         assert response.status_code==200,response.text
@@ -54,4 +55,37 @@ def test_audition_does_not_detect_sections_and_approval_exports_meter():
         response=TestClient(app.app).post("/tempo/approve",files={"file":("test.mp3",audio)},data={"review":json.dumps(payload)})
         assert response.status_code==200,response.text
         assert response.json()["meter_review"]["confirmed"] is True
-        assert response.json()["meter_review"]["downbeat_times"]==beats[::3]
+        assert response.json()["meter_review"]["downbeat_times"]==beats[::numerator]
+        assert response.json()["meter_review"]["pattern"]==pattern
+
+def test_eighth_332_variable_timing_and_anchor():
+    beats=[0,.5,1,1.6,2.2,2.8,3.4,4,4.6]
+    m=meter_review({"numerator":4,"denominator":4,"first_one":.24,"pattern":"332"},beats,5)
+    assert m["first_one"]==.25
+    assert m["first_one_pulse_index"]==1
+    assert m["pulse_times"][:7]==[0,.25,.5,.75,1,1.3,1.6]
+    assert m["downbeat_times"]==[.25,2.5]
+    assert m["group_accent_times"]==pytest.approx([1,1.9,3.4,4.3])
+    assert m["grouping"]==[3,3,2]
+    assert m["pulses_per_cycle"]==8
+    assert m["pulse_times"][-1]==beats[-1]  # no invented tail beats
+
+def test_eighth_regular_and_invalid_grouping():
+    m=meter_review({"numerator":3,"denominator":4,"first_one":0,"pattern":"eighth"},[0,1,2,3,4],5)
+    assert m["pulses_per_cycle"]==6
+    assert m["downbeat_times"]==[0,3]
+    assert m["group_accent_times"]==[]
+    with pytest.raises(ValueError):
+        meter_review({"numerator":3,"denominator":4,"first_one":0,"pattern":"332"},[0,1,2,3],4)
+
+def test_rendered_332_frequencies(tmp_path):
+    beats=np.arange(0,4.5,.5).tolist()
+    m=meter_review({"numerator":4,"denominator":4,"first_one":0,"pattern":"332"},beats,5)
+    wav=render_click_track(m["pulse_times"],[],5,tmp_path/"332.wav",
+                          downbeat_times=m["downbeat_times"],group_accent_times=m["group_accent_times"])
+    y,sr=sf.read(wav)
+    frequencies=[]
+    for t in m["pulse_times"][:8]:
+        segment=y[round(t*sr):round(t*sr)+1764]
+        frequencies.append(np.fft.rfftfreq(len(segment),1/sr)[np.argmax(abs(np.fft.rfft(segment)))])
+    assert frequencies==[1800,1200,1200,1500,1200,1200,1500,1200]

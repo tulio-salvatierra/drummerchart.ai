@@ -136,3 +136,20 @@ are rejected. Play loop uses a single stereo Web Audio buffer with loopStart/
 loopEnd, keeping song and click together without timer-driven audio restarts.
 Stop loop retains the playback position. Meter/tempo/ONE changes invalidate loops.
 Zoom and looping currently apply to pre-approval review, not the final chart editor.
+
+### Eighth-note subdivisions and 3+3+2
+Click pattern offers quarter notes, straight eighth notes, and eighth-note 3+3+2.
+Selecting 3+3+2 sets 4/4; changing to another meter resets that incompatible pattern.
+BPM remains quarter notes per minute. Eighth pulses are midpoints of successive
+reviewed beats, preserving local tempo drift; no pulses are extrapolated past the
+last detected beat. ONE snaps to the selected pulse grid, including eighth-note
+positions. Pre-ONE pulses remain unaccented pickups.
+
+3+3+2 accents pulse 1 at 1800 Hz, pulses 4 and 7 at 1500 Hz, and other pulses at
+1200 Hz. A full pattern is eight eighth notes (four quarter beats). Loop lengths
+use complete pulse cycles anchored to ONE, including when ONE is on an offbeat.
+Audition and approved WAV use the same pulse/accent map; section analysis still
+uses quarter-note beats. Export includes pattern, subdivision, grouping, pulse
+times, cycle length, pulse anchor, downbeats and secondary accent times.
+This is a manual pattern choice, not automatic meter/pattern recognition; no swing,
+triplets or within-song pattern changes are added.

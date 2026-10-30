@@ -45,7 +45,7 @@ $('upload').onsubmit=async e=>{
  try{
   const form=new FormData();form.append('file',tempoFile);
   const response=await fetch('/tempo',{method:'POST',body:form});const data=await response.json();if(!response.ok)throw Error(data.detail);
-  tempoPrediction=data;$('meter').value='3';$('firstOne').value=data.beat_times[0].toFixed(3);$('tempoRows').replaceChildren();addTempoRow(Number(data.beat_times[0].toFixed(3)),Number(data.estimated_bpm.toFixed(3)));$('overrideTempo').checked=false;
+  tempoPrediction=data;$('meter').value='3';$('pattern').value='quarter';$('firstOne').value=data.beat_times[0].toFixed(3);$('tempoRows').replaceChildren();addTempoRow(Number(data.beat_times[0].toFixed(3)),Number(data.estimated_bpm.toFixed(3)));$('overrideTempo').checked=false;
   if(originalURL)URL.revokeObjectURL(originalURL);originalURL=URL.createObjectURL(tempoFile);$('tempoAudio').src=originalURL;
   const decoder=new AudioContext();try{reviewBuffers.original=await decoder.decodeAudioData(await tempoFile.arrayBuffer());}finally{await decoder.close();}
   $('reviewSeek').max=data.duration;$('oneDrag').max=data.duration-.001;$('oneDrag').value=$('firstOne').value;$('zoom').value='1';renderView(0);
@@ -86,9 +86,10 @@ function tick(){if(result){if(playing&&position()>=result.duration)stop();$('see
 
 function readMeter(){
  if(!$('firstOne').value.trim())throw Error('Mark the first ONE.');
- return {numerator:Number($('meter').value),denominator:4,first_one:Number($('firstOne').value)};
+ return {numerator:Number($('meter').value),denominator:4,pattern:$('pattern').value,first_one:Number($('firstOne').value)};
 }
-$('meter').onchange=invalidate;
+$('meter').onchange=()=>{if($('pattern').value==='332'&&$('meter').value!=='4')$('pattern').value='quarter';invalidate();};
+$('pattern').onchange=()=>{if($('pattern').value==='332')$('meter').value='4';invalidate();};
 $('firstOne').oninput=()=>{$('oneDrag').value=$('firstOne').value;invalidate();updateReview();};
 $('markOne').onclick=()=>{const t=reviewPosition();$('firstOne').value=t.toFixed(3);$('oneDrag').value=t;invalidate();$('tempoAudio').currentTime=t;updateReview();};
 $('oneDrag').oninput=()=>{const t=Number($('oneDrag').value);$('firstOne').value=t.toFixed(3);invalidate();$('tempoAudio').currentTime=t;updateReview();};
@@ -113,7 +114,7 @@ $('audition').onclick=async()=>{
   const decoder=new AudioContext();try{const b=await decoder.decodeAudioData(Uint8Array.from(atob(data.audition_wav_base64),c=>c.charCodeAt(0)).buffer);reviewBuffers.click=b;drawReview('reviewClick',b,1);}finally{await decoder.close();}
   $('countAudio').currentTime=$('tempoAudio').currentTime;$('reviewPlay').textContent='Play song + click';$('clickHint').textContent='Song and click share one playback position.';
   auditionData=data;loopRange=null;$('loopStatus').textContent='Choose bars and set loop at playhead.';const actual=data.meter_review.first_one;$('reviewStack').style.setProperty('--one',(actual/tempoPrediction.duration*100)+'%');
-  $('meterStatus').textContent='Unconfirmed '+meter.numerator+'/4 · ONE at '+actual.toFixed(3)+' s (snapped from '+meter.first_one.toFixed(3)+'). Higher click marks every '+meter.numerator+' beats. Press play to listen.';updateReview();
+  $('meterStatus').textContent='Unconfirmed '+meter.numerator+'/4 · ONE at '+actual.toFixed(3)+' s (snapped from '+meter.first_one.toFixed(3)+'). '+(meter.pattern==='332'?'3+3+2 eighth notes: accents on pulses 1, 4 and 7.':meter.pattern==='eighth'?'Eighth-note pulses; highest click starts each bar.':'Quarter-note pulses; highest click starts each bar.')+' Press play to listen.';updateReview();
  }catch(e){$('meterStatus').textContent=e.message;}finally{controls.forEach(c=>c.disabled=false);}
 };
 
@@ -149,8 +150,8 @@ $('setLoop').onclick=()=>{
  try{
   if(!auditionData)throw Error('Build a count audition first.');
   const time=reviewPosition();stopReviewLoop();loopRange=null;
-  loopRange=barLoop(auditionData.beat_times,auditionData.meter_review.first_one_beat_index,auditionData.meter_review.numerator,Number($('loopBars').value),time);
-  $('loopStatus').textContent=loopRange.bars+' bars · '+loopRange.start.toFixed(3)+'–'+loopRange.end.toFixed(3)+' s';
+  loopRange=barLoop(auditionData.meter_review.pulse_times,auditionData.meter_review.first_one_pulse_index,auditionData.meter_review.pulses_per_cycle,Number($('loopBars').value),time);
+  $('loopStatus').textContent=loopRange.bars+' complete cycles / bars · '+loopRange.start.toFixed(3)+'–'+loopRange.end.toFixed(3)+' s';
  }catch(e){$('loopStatus').textContent=e.message;}
 };
 $('playLoop').onclick=async()=>{

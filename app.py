@@ -124,8 +124,8 @@ def approve_tempo(file: UploadFile = File(...), review: str = Form(...), auditio
                 import librosa
                 import numpy as np
                 import soundfile as sf
-                wav = render_click_track(np.asarray(beats), np.array([]), prediction["duration"],
-                                         Path(directory) / "click.wav", downbeat_times=meter["downbeat_times"])
+                wav = render_click_track(np.asarray(meter["pulse_times"]), np.array([]), prediction["duration"],
+                                         Path(directory) / "click.wav", downbeat_times=meter["downbeat_times"], group_accent_times=meter["group_accent_times"])
                 click, sr = sf.read(wav)
                 original, _ = librosa.load(source, sr=sr, mono=True)
                 mix = np.zeros((len(click), 2))
@@ -135,9 +135,10 @@ def approve_tempo(file: UploadFile = File(...), review: str = Form(...), auditio
                 return {"meter_review": meter, "beat_times": beats, "approved": False,
                         "audition_wav_base64": base64.b64encode((Path(directory) / "audition.wav").read_bytes()).decode("ascii")}
             analysis = analyze_song(source, reviewed_beats=beats)
-            wav = render_click_track(analysis["beat_times"], analysis["boundary_times"],
+            wav = render_click_track(meter["pulse_times"] if meter else analysis["beat_times"], analysis["boundary_times"],
                                      analysis["duration"], Path(directory) / "click.wav",
-                                     downbeat_times=meter["downbeat_times"] if meter else None)
+                                     downbeat_times=meter["downbeat_times"] if meter else None,
+                                     group_accent_times=meter["group_accent_times"] if meter else None)
             return {"schema_version": 2, "analysis_version": "tempo-review-v1",
                     "source_name": Path(file.filename).name,
                     "source_sha256": payload["source_sha256"],
