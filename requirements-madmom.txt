@@ -1,0 +1,5 @@
+# Downbeat model. Installed from GitHub: the PyPI release (0.16.1) does not build on
+# Python 3.12 / numpy 2. Needs a C compiler and git. Optional: without it the analyzer
+# falls back to the low-frequency accent heuristic.
+Cython==3.3.1
+madmom @ git+https://github.com/CPJKU/madmom.git@27f032e8947204902c675e5e341a3faf5dc86dae

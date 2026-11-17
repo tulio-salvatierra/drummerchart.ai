@@ -1,0 +1,6 @@
+.git
+.venv
+jobs
+tests/fixtures
+__pycache__
+.pytest_cache
