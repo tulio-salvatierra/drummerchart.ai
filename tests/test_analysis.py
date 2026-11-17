@@ -95,9 +95,10 @@ def test_heuristic_fallback_without_madmom(fixture_dir, truth, monkeypatch):
     import analyzer
     import meter
 
-    monkeypatch.setattr(meter, "madmom_accents", lambda path, beats: None)
+    monkeypatch.setattr(meter, "madmom_activation", lambda path: None)
     a = analyzer.analyze_song(fixture_dir / "B.mp3")
     assert a["downbeat_method"] == "heuristic"
+    assert a["beat_method"] == "librosa"
     hits, missed, false = _match_markers(a["markers"], truth["B"]["markers"], truth["B"]["bpm"])
     assert missed == 0 and false <= 1
     assert sum(_meter_results(a["markers"], truth["B"]["markers"], truth["B"]["duration"])) >= 2

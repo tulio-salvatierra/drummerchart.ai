@@ -90,6 +90,26 @@ def _refine_beat_times(y: np.ndarray, sr: int, beat_times: np.ndarray) -> np.nda
     return np.maximum(refined, 0.0)
 
 
+def _trim_silent_edges(y: np.ndarray, sr: int, times: np.ndarray) -> np.ndarray:
+    """Drop beats the tracker placed over silence before the music starts or after it ends."""
+    rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=HOP)[0]
+    if not np.any(rms > 0):
+        return times
+    floor = 0.3 * float(np.median(rms[rms > 0]))
+
+    def active(t: float) -> bool:
+        lo = max(0, int((t - 0.02) * sr / HOP))
+        hi = min(len(rms), int((t + 0.12) * sr / HOP) + 1)
+        return hi > lo and float(np.max(rms[lo:hi])) > floor
+
+    a, b = 0, len(times)
+    while a < b and not active(times[a]):
+        a += 1
+    while b > a and not active(times[b - 1]):
+        b -= 1
+    return times[a:b]
+
+
 def estimate_bpm(beat_times: np.ndarray) -> float:
     """Median beat interval -> BPM. Intervals are averaged over 8-beat spans first so
     frame quantization doesn't bias the median."""
@@ -182,14 +202,25 @@ def analyze_song(path: str | Path) -> dict:
     if duration < 5:
         raise ValueError("Audio is too short to analyze reliably.")
 
-    beat_frames, beat_times = _track_beats(y, sr)
+    # Beats: madmom's neural beat model when available (it copes with syncopated and
+    # swung grooves far better), librosa's tracker otherwise.
+    act = meter_mod.madmom_activation(str(path))
+    madmom_beats = meter_mod.madmom_beats(act) if act is not None else None
+    if madmom_beats is not None:
+        beat_times = _trim_silent_edges(y, sr, madmom_beats[madmom_beats < duration])
+        beat_times = _refine_beat_times(y, sr, beat_times) if len(beat_times) >= 4 else beat_times
+        beat_frames = librosa.time_to_frames(beat_times, sr=sr, hop_length=HOP)
+        beat_source = "madmom"
+    else:
+        beat_frames, beat_times = _track_beats(y, sr)
+        beat_source = "librosa"
     if len(beat_times) < 4:
         raise ValueError("Not enough beats were detected to build a click track.")
     n_beats = len(beat_times)
 
     boundaries = [int(b) for b in _detect_section_boundaries(y, sr, beat_frames)]
 
-    madmom_acc = meter_mod.madmom_accents(str(path), beat_times)
+    madmom_acc = meter_mod.madmom_accents(str(path), beat_times, act)
     heuristic_acc = meter_mod.low_frequency_accents(y, sr, beat_times)
     accent = meter_mod.combine_accents(madmom_acc, heuristic_acc)
     method = "madmom+heuristic" if madmom_acc is not None else "heuristic"
@@ -224,4 +255,5 @@ def analyze_song(path: str | Path) -> dict:
         "downbeats": downbeats,
         "markers": markers,
         "downbeat_method": method,
+        "beat_method": beat_source,
     }

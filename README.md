@@ -96,7 +96,7 @@ GET  /job/<id>/download/<click|mix>
 |---|---|
 | `app.py` | FastAPI routes, upload limits, marker validation |
 | `jobs.py` | One folder per job, id validation, 2-hour cleanup |
-| `analyzer.py` | Beats (librosa), BPM, section boundaries (self-similarity novelty), markers |
+| `analyzer.py` | Beats (madmom's neural beat model, librosa fallback), BPM, section boundaries (self-similarity novelty), markers |
 | `meter.py` | Downbeat phase + meter per section (madmom activation + low-frequency accents) |
 | `schedule.py` | `build_click_schedule(beats, markers, duration)`: the single definition of what plays when |
 | `static/schedule.js` | The same function for the browser preview |
@@ -138,6 +138,9 @@ Python/JS schedule parity, WAV length and clipping, and the whole API flow.
 - Practice view (big readout, next-section countdown), section loop, 60–100% speed.
 - Half / double time grid fix.
 - Fixture E (two-beat pickup) and tests for the new rules, voice notes and settings.
+- Beats now come from madmom's neural beat model (reusing the downbeat model's output, so
+  ~1–2 s extra), with librosa as the fallback. It holds syncopated and swung grooves that
+  librosa misread: a Latin lo-fi test track went from ~174 BPM (shown as 87) to a steady 127.
 
 ## What changed in Pass 2
 
