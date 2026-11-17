@@ -1,4 +1,4 @@
-# Drummer Chart AI — Pass 2
+# Drummer Chart AI
 
 Upload an MP3 of a full song. In under a minute you land on an editor where the detected
 section changes are draggable markers, each with a time signature. Fix anything while
@@ -29,55 +29,66 @@ docker build -t drummerchart-ai .
 docker run --rm -p 8000:8000 drummerchart-ai
 ```
 
-## Using the editor
+## Using the app
+
+Everything happens on one page: the pitch and the upload box at the top. After you drop a
+song, the page turns into the workspace (the URL becomes `/job/<id>`, so a reload keeps you there).
 
 | Action | How |
 |---|---|
 | Play / pause | `Space`, or the play button |
-| Seek | Click the timeline (`←` / `→` jump 5 s when no marker is selected) |
-| Move a marker | Drag it. It snaps to the nearest beat; hold `Shift` to snap to downbeats |
+| Seek | Click the lane or a section on the song map (`←` / `→` jump 5 s when nothing is selected) |
+| Move a marker | Drag it. It snaps to beats; hold `Shift` to snap to bar lines |
+| Set where the 1 is | Drag the green **1** onto the first downbeat. Beats before it are pickup beats |
 | Nudge the selected marker | `←` / `→` one beat, `Shift` + arrow one bar |
-| Change a marker's time signature | Click the marker, then one of 2/4 3/4 4/4 5/4 6/8 7/8 12/8 |
-| Label a marker | Click it and type (Intro, Verse, Chorus...) |
-| Add a marker | Double-click the timeline, or press `M` to drop one at the playhead |
-| Delete the selected marker | `Delete` / `Backspace` |
+| Time signature, label | Click a marker: 2/4 3/4 4/4 5/4 6/8 7/8 12/8, and a label (Intro, Verse, Chorus…) |
+| Voice cue | Click a marker → **Record cue** → say “Chorus, Metallica” → **Stop**. It plays one bar before the marker instead of the cue tone |
+| Add / delete a marker | Double-click the lane or press `M` · select it and press `Delete` |
 | Undo / redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` |
-| Zoom | The zoom slider, or `Ctrl/Cmd` + scroll |
-| What you hear | Song / Song + click / Click |
-| Download | "Download click track" renders both WAVs from the markers on screen |
+| Loop a section | `L`, or the Loop button (click a section on the song map to loop that one) |
+| Practice view | `P`, or Practice. Big section name, bar · beat, and what's coming next. On a phone it fills the screen |
+| Speed | 60–100% (preview only; downloads are always 100%) |
+| Count-in | Off, 1 bar or 2 bars, always counting into the 1 |
+| Click accents | Tap each beat: Loud → Normal → Soft → Off, per time signature, or use a preset |
+| Beat grid off? | “Beat grid: Half time / Double time” re-reads the detected beats |
+| Download | Renders both WAVs from exactly what's on screen |
 
-- The first marker is the first beat of the song. Its meter can change; it can't be moved
-  or deleted.
-- Outlined, dimmed markers with a `?` are low-confidence meter guesses (below 50%). They
-  default to 4/4 until you pick one.
-- Edits are kept in the browser (localStorage) until the job expires. "Reset to detected"
-  goes back to the analysis.
+- Outlined markers with a `?` are unsure time-signature guesses (below 50%). They default
+  to 4/4 until you pick one.
+- Edits stay in the browser (localStorage) until the job expires. "Reset to detected" goes
+  back to the analysis.
 
 ### What the click does
 
-- Normal click on every beat, a higher and louder click on beat 1 of each bar.
+- Every beat clicks at its accent level: loud (high click) on beat 1 by default, normal on
+  the rest. 6/8, 9/8 and 12/8 default to a dotted-quarter feel (loud 1, normal 4, soft
+  elsewhere).
 - Bars restart at every marker, using that marker's time signature.
-- A low cue tone plays exactly one bar before each section change (the bar length of the
-  section you're leaving), then a bright accent on the change itself.
-- A one-bar count-in before the first beat, if the song has that much lead-in.
+- One bar before each section change: your voice cue if the marker has one, otherwise a
+  low cue tone. Then a bright accent on the change itself.
+- Count-in clicks before the 1, extrapolated back from the beat if the song starts right away.
 
 ### How time signatures map onto the beat grid
 
 The detected beat grid is never re-spaced. A time signature only says how many detected
 beats make a bar: 2/4 = 2, 3/4 = 3, 4/4 = 4, 5/4 = 5, 6/8 = 6, 7/8 = 7, 12/8 = 12. So in
 6/8 each detected beat is treated as an eighth note. If the tracker locked onto the dotted
-quarter of a 6/8 song instead (two pulses per bar), pick 2/4.
+quarter of a 6/8 song instead (two pulses per bar), pick 2/4, or try "Double time".
 
 ## How it works
 
 ```
 POST /analyze                 validate, save jobs/<id>/input.mp3, analyze once,
                               save jobs/<id>/analysis.json, redirect to /job/<id>
-GET  /job/<id>                editor page
+GET  /                       the page (pitch + upload)
+GET  /job/<id>                the same page, with that song loaded
 GET  /job/<id>/analysis       {job_id, duration, bpm, beats, downbeats, markers[]}
 GET  /job/<id>/audio          the original upload
-POST /render/<id>             body {markers: [...]} -> renders click.wav + mix.wav from the
-                              SAVED beats (no analysis), returns download URLs
+POST /job/<id>/voice          a recorded voice cue (WAV, made in the browser) -> {id}
+GET  /job/<id>/voice/<note>   that voice cue
+POST /render/<id>             body {markers: [...], settings: {count_in_bars, grid, accents}}
+                              -> renders click.wav + mix.wav from the SAVED beats (no
+                              analysis), returns download URLs
 GET  /job/<id>/download/<click|mix>
 ```
 
@@ -90,10 +101,10 @@ GET  /job/<id>/download/<click|mix>
 | `schedule.py` | `build_click_schedule(beats, markers, duration)`: the single definition of what plays when |
 | `static/schedule.js` | The same function for the browser preview |
 | `clicktrack.py` | Renders the schedule to WAV: click only, and song + click |
-| `static/editor.js` | Timeline, markers, undo, Web Audio click preview |
+| `templates/app.html`, `static/app.js`, `static/app.css` | The one page: upload, lane, song map, practice view, accents, voice cues, live preview |
 
 Markers are the single source of truth for sections: `{time, meter, meter_confidence,
-label}`. A section ends where the next marker starts.
+label, voice}`. A section ends where the next marker starts. The earliest marker is the 1.
 
 Limits: MP3 only, 20 MB, 10 minutes. Jobs older than 2 hours are deleted at startup and
 on every upload.
@@ -113,6 +124,20 @@ bass/chord layer whose harmony and timbre change at each section boundary.
 
 The suite checks BPM, beat timing, boundary detection, meter accuracy, the schedule rules,
 Python/JS schedule parity, WAV length and clipping, and the whole API flow.
+
+## What changed in Pass 3
+
+- One page: landing pitch, upload, editor, practice and download, no navigation.
+- New look (shadow grey, gunmetal, dust grey, digital blue, spring laser).
+- Waveform under the beat grid, and a song map with every section as a block.
+- The 1: the first marker is now the first downbeat and can be dragged; pickup beats are
+  allowed. The analyzer places it on the detected downbeat.
+- Count-in length (off / 1 / 2 bars), always ending on the 1.
+- Click accents per time signature (loud / normal / soft / off) with presets.
+- Voice cues recorded in the browser, played in the preview and mixed into both WAVs.
+- Practice view (big readout, next-section countdown), section loop, 60–100% speed.
+- Half / double time grid fix.
+- Fixture E (two-beat pickup) and tests for the new rules, voice notes and settings.
 
 ## What changed in Pass 2
 
@@ -141,8 +166,11 @@ Python/JS schedule parity, WAV length and clipping, and the whole API flow.
   the meter that matches the grid.
 - **Kick on 1 and 3.** The meter guess leans on accents. Songs with equal kicks on 1 and 3
   can read as 2/4; sparse or syncopated drumming lowers confidence.
-- **Pickup beats.** The first marker is always the first detected beat. If the song starts
-  with a pickup, the analyzer adds a "Bar 1" marker on the first real downbeat.
+- **Pickup beats.** The analyzer guesses where the 1 is from accents; on songs without a
+  clear kick on 1 it can land a beat or two off. Drag the green 1.
+- **Voice cues** are recorded in the browser and need microphone permission. Long cues
+  (longer than the bar before the change) overlap the change; the popover warns you.
+- **Speed** changes only the preview. Downloads are always at 100%.
 - **Meter changes without a harmony or timbre change** are not detected as boundaries. Add
   the marker by hand.
 - **Preview latency.** The browser preview schedules clicks against the audio element's

@@ -4,7 +4,7 @@ import pytest
 
 from schedule import beats_per_bar
 
-NAMES = ["A", "B", "C", "D"]
+NAMES = ["A", "B", "C", "D", "E"]
 
 
 def _bar_seconds(meter: str, bpm: float) -> float:
@@ -72,7 +72,10 @@ def test_meter_accuracy_at_least_75_percent(analyses, truth):
 def test_analysis_shape(name, analyses):
     a = analyses[name]["result"]
     assert set(a) >= {"duration", "bpm", "beats", "downbeats", "markers"}
-    assert a["markers"][0]["time"] == a["beats"][0], "first marker must sit on the first beat"
+    first = a["markers"][0]["time"]
+    assert first in a["beats"], "the one must sit on a beat"
+    assert first == a["downbeats"][0], "the one is the first downbeat"
+    assert a["beats"].index(first) < 12, "the one should be within the first bars"
     assert a["beats"] == sorted(a["beats"])
     for m in a["markers"]:
         assert set(m) == {"time", "meter", "meter_confidence", "label"}
@@ -112,3 +115,11 @@ def test_score_section_separates_meters():
         assert result["confidence"] >= 0.5
     flat = meter.score_section(rng.uniform(0.0, 1.0, 96))
     assert flat["confidence"] < 0.5
+
+
+def test_the_one_is_found_after_a_pickup(analyses, truth):
+    """Fixture E starts with two pickup beats: the first marker must be the real downbeat."""
+    a, t = analyses["E"]["result"], truth["E"]
+    assert t["beats"][0] < t["markers"][0]["time"]
+    assert abs(a["markers"][0]["time"] - t["markers"][0]["time"]) < 0.070
+    assert a["beats"][0] < a["markers"][0]["time"], "pickup beats stay on the grid"

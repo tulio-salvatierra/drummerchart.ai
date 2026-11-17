@@ -136,7 +136,13 @@ FIXTURES = {
         ("4/4", 12, "d_dorian", "square", 2),
         ("4/4", 20, "c_major", "organ", 2),
     ]),
+    # E: starts with a 2-beat pickup (snare + hats, no kick) before the first downbeat.
+    "E": (110, 2.2, [
+        ("4/4", 16, "c_major", "soft", 1),
+        ("4/4", 16, "a_minor", "saw", 1),
+    ]),
 }
+PICKUP_BEATS = {"E": 2}
 
 
 def synthesize(name: str) -> tuple[np.ndarray, dict]:
@@ -147,6 +153,12 @@ def synthesize(name: str) -> tuple[np.ndarray, dict]:
     duration = lead_in + total_beats * period + 1.5
     buf = np.zeros(int(duration * SR))
     beats, downbeats, markers = [], [], []
+    for k in range(PICKUP_BEATS.get(name, 0), 0, -1):
+        tp = lead_in - k * period
+        beats.append(round(tp, 6))
+        _add(buf, _snare(0.45, rng), tp)
+        _add(buf, _hat(0.22, rng), tp)
+        _add(buf, _hat(0.12, rng), tp + period / 2)
     t = lead_in
     for meter, bars, prog_name, timbre, octave in sections:
         markers.append({"time": round(t, 6), "meter": meter})

@@ -199,11 +199,11 @@ def analyze_song(path: str | Path) -> dict:
     markers, downbeats = [], []
     first = sections[0]
     pickup = first["phase"] % first["period"]
-    # The first marker is always the first beat. If the song starts with pickup beats,
-    # a second marker re-anchors bar 1 on the first real downbeat.
-    entries = [(0, first, "")]
-    if pickup and pickup < (sections[1]["start"] if len(sections) > 1 else n_beats):
-        entries.append((pickup, first, "Bar 1"))
+    # The first marker is "the one": the first downbeat. Beats before it are pickup
+    # beats, which the user can correct by sliding the one in the editor.
+    if len(sections) > 1 and pickup >= sections[1]["start"]:
+        pickup = 0
+    entries = [(pickup, first, "")]
     entries += [(sec["start"], sec, "") for sec in sections[1:]]
     for i, (start, sec, label) in enumerate(entries):
         end = entries[i + 1][0] if i + 1 < len(entries) else n_beats
