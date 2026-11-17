@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 FIXTURE_DIR = ROOT / "tests" / "fixtures"
-NAMES = ["A", "B", "C", "D"]
+NAMES = ["A", "B", "C", "D", "E"]
 
 
 @pytest.fixture(scope="session")

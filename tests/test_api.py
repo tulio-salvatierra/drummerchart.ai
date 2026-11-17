@@ -46,11 +46,12 @@ def test_upload_saves_analysis_json(client, job):
 def test_editor_page_and_audio(client, job):
     page = client.get(f"/job/{job}")
     assert page.status_code == 200
-    assert "/static/editor.js" in page.text and job in page.text
+    assert "/static/app.js" in page.text and job in page.text
     audio = client.get(f"/job/{job}/audio")
     assert audio.status_code == 200 and audio.headers["content-type"] == "audio/mpeg"
     assert client.get("/static/schedule.js").status_code == 200
-    assert client.get("/").status_code == 200
+    home = client.get("/")
+    assert home.status_code == 200 and 'id="file-input"' in home.text
 
 
 def test_render_with_edited_markers_does_not_reanalyze(client, job, monkeypatch, tmp_path):
@@ -130,3 +131,61 @@ def test_old_jobs_are_cleaned_up(client):
     assert jobs.cleanup_old_jobs() == 1
     assert not old_path.exists() and fresh_path.exists()
     jobs.delete_job(fresh_id)
+
+
+def _wav_bytes(seconds: float, tmp_path, name="note.wav", sr=44100) -> bytes:
+    import numpy as np
+
+    t = np.arange(int(seconds * sr)) / sr
+    target = tmp_path / name
+    sf.write(str(target), (0.5 * np.sin(2 * np.pi * 300 * t)).astype("float32"), sr, subtype="PCM_16")
+    return target.read_bytes()
+
+
+def test_voice_note_upload_and_render(client, job, tmp_path):
+    import numpy as np
+
+    res = client.post(f"/job/{job}/voice", files={"file": ("note.wav", _wav_bytes(1.2, tmp_path), "audio/wav")})
+    assert res.status_code == 200, res.text
+    note = res.json()
+    assert len(note["id"]) == 16 and abs(note["duration"] - 1.2) < 0.01
+    assert client.get(note["url"]).status_code == 200
+
+    analysis = client.get(f"/job/{job}/analysis").json()
+    markers = [{"time": m["time"], "meter": m["meter"]} for m in analysis["markers"]]
+    markers[1]["voice"] = note["id"]
+    settings = {"count_in_bars": 2, "grid": "normal", "accents": {"4": [3, 0, 3, 0]}}
+    res = client.post(f"/render/{job}", json={"markers": markers, "settings": settings})
+    assert res.status_code == 200, res.text
+
+    from schedule import build_click_schedule
+
+    events = build_click_schedule(analysis["beats"], markers, analysis["duration"], settings)
+    voice_event = [e for e in events if e["kind"] == "voice"][0]
+    click = tmp_path / "click.wav"
+    click.write_bytes(client.get(res.json()["click"]).content)
+    data, sr = sf.read(str(click), dtype="float32")
+    start = int(voice_event["time"] * sr)
+    window = data[start + 2000 : start + 2000 + int(0.5 * sr)]
+    # 300 Hz voice note present (not the 520 Hz cue tone)
+    spectrum = np.abs(np.fft.rfft(window))
+    freqs = np.fft.rfftfreq(len(window), 1 / sr)
+    assert abs(freqs[np.argmax(spectrum)] - 300) < 15
+    saved = json.loads((_jobs_dir() / job / "markers.json").read_text())
+    assert saved["settings"]["count_in_bars"] == 2
+
+
+def test_voice_note_validation(client, job, tmp_path):
+    assert client.post(f"/job/{job}/voice", files={"file": ("x.wav", b"not audio", "audio/wav")}).status_code == 422
+    long = client.post(f"/job/{job}/voice", files={"file": ("x.wav", _wav_bytes(7.0, tmp_path, "long.wav", 8000), "audio/wav")})
+    assert long.status_code == 413 and "6 seconds" in long.json()["detail"]
+    assert client.get(f"/job/{job}/voice/../../analysis").status_code == 404
+    assert client.get(f"/job/{job}/voice/{'0' * 16}").status_code == 404
+    analysis = client.get(f"/job/{job}/analysis").json()
+    marker = {"time": analysis["markers"][0]["time"], "meter": "4/4"}
+    for bad in ({"voice": "0" * 16}, {"voice": "../x"}):
+        assert client.post(f"/render/{job}", json={"markers": [dict(marker, **bad)]}).status_code == 422
+    for settings in ({"count_in_bars": 3}, {"grid": "triple"}, {"accents": {"4": [0, 1]}},
+                     {"accents": {"x": [0]}}, {"accents": {"4": [0, 1, 2, 9]}}, "nope"):
+        res = client.post(f"/render/{job}", json={"markers": [marker], "settings": settings})
+        assert res.status_code == 422, settings

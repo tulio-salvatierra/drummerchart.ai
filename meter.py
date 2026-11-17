@@ -30,17 +30,43 @@ def beats_per_bar(meter: str) -> int:
     return n if 1 <= n <= 32 else 4
 
 
-def madmom_accents(path: str, beat_times: np.ndarray) -> np.ndarray | None:
-    """Downbeat activation sampled at each beat, or None if madmom is unavailable."""
+MADMOM_FPS = 100.0
+
+
+def madmom_activation(path: str) -> np.ndarray | None:
+    """madmom's RNN beat/downbeat activation, (frames @100 fps, [beat, downbeat]),
+    or None if madmom is unavailable. Computed once per song and shared by the beat
+    tracker and the meter guess."""
     try:
         from madmom.features.downbeats import RNNDownBeatProcessor
     except Exception:
         return None
     try:
-        act = RNNDownBeatProcessor()(str(path))  # (frames @100 fps, [beat, downbeat])
+        return RNNDownBeatProcessor()(str(path))
     except Exception:
         return None
-    fps = 100.0
+
+
+def madmom_beats(act: np.ndarray) -> np.ndarray | None:
+    """Beat times from the activation (DBN tracker, 55-215 BPM), or None."""
+    try:
+        from madmom.features.beats import DBNBeatTrackingProcessor
+    except Exception:
+        return None
+    try:
+        beats = DBNBeatTrackingProcessor(fps=MADMOM_FPS, min_bpm=55, max_bpm=215)(act.sum(axis=1))
+    except Exception:
+        return None
+    return np.asarray(beats, dtype=float) if len(beats) >= 4 else None
+
+
+def madmom_accents(path: str, beat_times: np.ndarray, act: np.ndarray | None = None) -> np.ndarray | None:
+    """Downbeat activation sampled at each beat, or None if madmom is unavailable."""
+    if act is None:
+        act = madmom_activation(path)
+    if act is None:
+        return None
+    fps = MADMOM_FPS
     out = np.zeros(len(beat_times))
     for i, t in enumerate(beat_times):
         lo = max(0, int(round((t - 0.05) * fps)))
