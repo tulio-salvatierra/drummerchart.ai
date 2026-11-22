@@ -22,6 +22,14 @@ Needs Python 3.11+ (3.12 recommended). `PORT=9000 ./run.sh` changes the port;
 the downbeat model (needs `git` and a C compiler; on macOS: `xcode-select --install`).
 If that fails the app still works and uses the built-in heuristic instead.
 
+### Deploy (Railway)
+
+The repo deploys as-is on [Railway](https://railway.com): New Project → Deploy from GitHub
+repo → `tulio-salvatierra/drummerchart.ai`. `railway.json` tells it to build the
+`Dockerfile`; the app listens on Railway's `$PORT`. Then Settings → Networking →
+Generate Domain for a public URL. Analysis peaks around 1.2 GB of memory on a 4-minute
+song (more for longer songs), so leave the service's memory limit at 4 GB or more.
+
 ### Docker
 
 ```bash

@@ -17,4 +17,6 @@ COPY . .
 RUN mkdir -p /app/jobs
 
 EXPOSE 8000
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Hosts like Railway set $PORT; default to 8000 for docker run -p 8000:8000.
+ENV PORT=8000
+CMD ["sh", "-c", "exec uvicorn app:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]
